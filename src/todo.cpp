@@ -1,20 +1,14 @@
+#include "todo.h"
+
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <string>
-#include <vector>
 
 namespace fs = std::filesystem;
 
-struct Todo {
-    int id;
-    bool done;
-    std::string text;
-};
-
-const std::string DB_FILE = "todos.db";
+std::string DB_FILE = "todos.db";
 
 std::vector<Todo> loadTodos() {
     std::vector<Todo> list;
@@ -50,7 +44,7 @@ int nextId(const std::vector<Todo>& list) {
     return maxid + 1;
 }
 
-void cmd_add(const std::string& text) {
+int addTodo(const std::string& text) {
     auto todos = loadTodos();
     Todo t;
     t.id = nextId(todos);
@@ -58,21 +52,14 @@ void cmd_add(const std::string& text) {
     t.text = text;
     todos.push_back(t);
     saveTodos(todos);
-    std::cout << "Added [" << t.id << "] " << t.text << '\n';
+    return t.id;
 }
 
-void cmd_list() {
-    auto todos = loadTodos();
-    if (todos.empty()) {
-        std::cout << "No tasks.\n";
-        return;
-    }
-    for (auto &t : todos) {
-        std::cout << (t.done ? "[x] " : "[ ] ") << t.id << ": " << t.text << '\n';
-    }
+std::vector<Todo> listTodos() {
+    return loadTodos();
 }
 
-void cmd_done(int id) {
+bool markDone(int id) {
     auto todos = loadTodos();
     bool found = false;
     for (auto &t : todos) {
@@ -82,29 +69,24 @@ void cmd_done(int id) {
             break;
         }
     }
-    if (!found) {
-        std::cout << "Task not found: " << id << '\n';
-        return;
-    }
+    if (!found) return false;
     saveTodos(todos);
-    std::cout << "Marked done: " << id << '\n';
+    return true;
 }
 
-void cmd_remove(int id) {
+bool removeTodo(int id) {
     auto todos = loadTodos();
     auto it = std::remove_if(todos.begin(), todos.end(), [&](const Todo& t){ return t.id == id; });
     if (it == todos.end()) {
-        std::cout << "Task not found: " << id << '\n';
-        return;
+        return false;
     }
     todos.erase(it, todos.end());
     saveTodos(todos);
-    std::cout << "Removed: " << id << '\n';
+    return true;
 }
 
-void cmd_clear() {
+void clearTodos() {
     if (fs::exists(DB_FILE)) fs::remove(DB_FILE);
-    std::cout << "All tasks cleared.\n";
 }
 
 void print_help() {
@@ -118,41 +100,3 @@ void print_help() {
         "  todolist clear                     Remove all tasks\n"
         "  todolist help                      Show this message\n";
 }
-
-int main(int argc, char** argv) {
-    if (argc < 2) {
-        print_help();
-        return 0;
-    }
-    std::string cmd = argv[1];
-    if (cmd == "add") {
-        if (argc < 3) {
-            std::cout << "Please provide task text.\n";
-            return 1;
-        }
-        std::string text;
-        for (int i = 2; i < argc; ++i) {
-            if (i > 2) text += " ";
-            text += argv[i];
-        }
-        cmd_add(text);
-    } else if (cmd == "list") {
-        cmd_list();
-    } else if (cmd == "done") {
-        if (argc != 3) { std::cout << "Usage: todolist done <id>\n"; return 1; }
-        int id = std::stoi(argv[2]);
-        cmd_done(id);
-    } else if (cmd == "remove") {
-        if (argc != 3) { std::cout << "Usage: todolist remove <id>\n"; return 1; }
-        int id = std::stoi(argv[2]);
-        cmd_remove(id);
-    } else if (cmd == "clear") {
-        cmd_clear();
-    } else if (cmd == "help") {
-        print_help();
-    } else {
-        std::cout << "Unknown command: " << cmd << '\n';
-        print_help();
-    }
-    return 0;
-} 
